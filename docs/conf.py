@@ -15,6 +15,7 @@ myst_heading_anchors = 3
 html_theme = 'furo'
 html_static_path = ['_static']
 html_css_files = ['custom.css']
+html_favicon = '_static/favicon.ico'
 
 html_theme_options = {
     'light_css_variables': {
