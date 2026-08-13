@@ -9,8 +9,12 @@ A self-hosted scheduling application inspired by YouCanBook.me and Calendly, run
 ## Features
 
 - **Meeting type selection** — configurable via YAML (office hours, check-ins, project meetings, custom durations)
+- **Availability Settings** — configure available days (Mon-Sun), custom time ranges, and blocked dates (holidays/leave) with automatic `localStorage` persistence and real-time slot filtering
+- **Contextual Time Zone selector** — conveniently located on the Date & Time tab for streamlined scheduling
+- **High-contrast, accessible calendar UI** — clear, high-contrast text rendering for time slots and labels in both Light and Dark modes
+- **High-performance prefetching** — instant slot loading and client-side slot merging for fast, responsive interaction
 - **Calendar availability** — reads availability windows from Google Calendar, checks configured calendars for conflicts
-- **Booking form** — collects visitor details, supports in-person and virtual formats
+- **Booking form** — collects visitor details, supports in-person and virtual formats with real-time validation
 - **Email notifications** — sends confirmation, cancellation, and reschedule emails with iCal attachments
 - **Cancel & reschedule** — secure token-based links in every confirmation email
 - **Zero cost** — GitHub Pages (free) + Google Apps Script (free) + Google Sheets (free)
@@ -38,12 +42,12 @@ See the [full setup guide](https://cdl-scheduler.readthedocs.io/en/latest/setup.
 ## Architecture
 
 ```
-index.html         Main booking flow (4-step wizard)
+index.html         Main booking flow (5-step wizard: Type → Duration → Date & Time → Details → Confirmation)
 cancel.html        Cancellation page
 reschedule.html    Reschedule page
 config/            YAML configuration files
-css/               Styles (sage green theme)
-js/                Application modules
+css/               Styles (black & white theme with light/dark modes)
+js/                Application modules (api-client, calendar, booking-form, timezone, app)
 lib/               Vendored libraries (js-yaml, FullCalendar)
 
 backend/           Google Apps Script

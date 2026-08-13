@@ -177,8 +177,17 @@ var BookingForm = (function () {
     }
   }
 
+  function reset() {
+    var form = document.getElementById('booking-form');
+    if (form) {
+      form.reset();
+    }
+    clearAllErrors();
+  }
+
   return {
     init: init,
+    reset: reset,
     validateField: validateField,
     validateAll: validateAll,
     extractFormData: extractFormData,

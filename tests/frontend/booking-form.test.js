@@ -126,4 +126,12 @@ describeIfExists('BookingForm.extractFormData', () => {
     expect(data.purpose).toBe('Discuss project');
     expect(data.notes).toBe('See doc link');
   });
+
+  test('reset clears form inputs', () => {
+    BookingForm.reset();
+    const data = BookingForm.extractFormData();
+    expect(data.firstName).toBe('');
+    expect(data.lastName).toBe('');
+    expect(data.email).toBe('');
+  });
 });

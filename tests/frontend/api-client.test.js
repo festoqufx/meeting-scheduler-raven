@@ -37,6 +37,14 @@ describe('ApiClient prefetch cache', () => {
     expect(global.fetch).toHaveBeenCalledTimes(1); // only the prefetch itself
   });
 
+  test('serves prefetch when requested start is earlier than prefetch range start', async () => {
+    const EARLIER_START = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
+    ApiClient.prefetchSlots(FUTURE_START, FUTURE_END);
+    const result = await ApiClient.getAvailableSlots(EARLIER_START, FUTURE_END, 15);
+    expect(global.fetch).toHaveBeenCalledTimes(1); // served from prefetch
+    expect(result.success).toBe(true);
+  });
+
   test('invalidatePrefetch forces the next fetch to hit the backend', async () => {
     ApiClient.prefetchSlots(FUTURE_START, FUTURE_END);
     await ApiClient.getAvailableSlots(FUTURE_START, FUTURE_END, 15);

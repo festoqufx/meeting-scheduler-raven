@@ -4,6 +4,8 @@
   "private": true,
   "description": "Booking scheduler — root test orchestration",
   "scripts": {
+    "start": "npx --yes serve . -l 8080",
+    "serve": "npx --yes serve . -l 8080",
     "test": "npm run test:backend && npm run test:frontend",
     "test:backend": "node tests/backend/run-all.js",
     "test:frontend": "npm --prefix tests/frontend test"

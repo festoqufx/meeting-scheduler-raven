@@ -3,38 +3,70 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
   <title>Reschedule Booking</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('scheduler-theme');
+        var theme = (stored === 'light' || stored === 'dark')
+          ? stored
+          : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+        document.documentElement.style.colorScheme = theme;
+      } catch (e) { /* ignore */ }
+    })();
+  </script>
   <link rel="stylesheet" href="css/styles.css">
   <script src="lib/js-yaml.min.js"></script>
   <script src="lib/fullcalendar.min.js"></script>
+  <script src="js/fc-timezone.js"></script>
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
   <div class="container">
     <header class="header">
-      <h1>Reschedule Booking</h1>
-      <div class="timezone-selector">
-        <label for="timezone-select">Timezone:</label>
-        <select id="timezone-select" aria-label="Select your timezone"></select>
+      <div class="header-brand">
+        <span class="header-eyebrow">Meeting Scheduler</span>
+        <h1>Reschedule Booking</h1>
+      </div>
+      <div class="header-controls">
+        <div class="timezone-selector">
+          <label for="timezone-select">Timezone</label>
+          <select id="timezone-select" aria-label="Select your timezone"></select>
+        </div>
+        <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false" aria-label="Switch to dark mode" title="Switch to dark mode">
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M21 14.5A8.5 8.5 0 1 1 9.5 3a7 7 0 0 0 11.5 11.5z"/>
+          </svg>
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+          </svg>
+        </button>
       </div>
     </header>
 
-    <section class="step-content active">
-      <div id="reschedule-content">
-        <p id="booking-info" class="selected-info">Loading booking details...</p>
-        <div id="calendar-container" class="calendar-container"></div>
-      </div>
-      <div id="reschedule-result" class="confirmation-box" style="display:none;"></div>
-    </section>
+    <main id="main-content">
+      <section class="step-content active">
+        <div id="reschedule-content">
+          <p id="booking-info" class="selected-info">Loading booking details...</p>
+          <div id="calendar-container" class="calendar-container"></div>
+        </div>
+        <div id="reschedule-result" class="confirmation-box" style="display:none;"></div>
+      </section>
+    </main>
 
-    <div id="loading" class="loading-overlay" aria-hidden="true">
-      <div class="spinner"></div>
+    <div id="loading" class="loading-overlay" aria-hidden="true" role="status">
+      <div class="spinner" aria-hidden="true"></div>
       <p>Processing...</p>
     </div>
 
     <div id="error-banner" class="error-banner" role="alert" aria-live="polite"></div>
   </div>
 
+  <script src="js/theme.js"></script>
   <script src="js/config-loader.js"></script>
   <script src="js/timezone.js"></script>
   <script src="js/api-client.js"></script>
@@ -49,6 +81,7 @@
       var errorBanner = document.getElementById('error-banner');
       var booking = null;
       var calendar = null;
+      var TZ_STORAGE_KEY = 'scheduler-timezone';
 
       if (!token) {
         bookingInfo.textContent = 'Invalid link. Please use the reschedule link from your confirmation email.';
@@ -74,6 +107,7 @@
         });
         select.addEventListener('change', function () {
           TimezoneUtil.setTimezone(select.value);
+          try { localStorage.setItem(TZ_STORAGE_KEY, select.value); } catch (e) { /* ignore */ }
           if (calendar) {
             calendar.setOption('timeZone', select.value);
             calendar.refetchEvents();
@@ -81,60 +115,76 @@
         });
       }
 
-      // Load config and booking details
+      function renderStatusMessage(title, body, isError) {
+        bookingInfo.textContent = '';
+        var calendarEl = document.getElementById('calendar-container');
+        if (calendarEl) calendarEl.style.display = 'none';
+        var h2 = document.createElement('h2');
+        if (isError) h2.className = 'status-error';
+        h2.textContent = title;
+        content.appendChild(h2);
+        var p = document.createElement('p');
+        p.className = 'confirmation-note';
+        p.textContent = body;
+        content.appendChild(p);
+        var links = document.createElement('div');
+        links.className = 'confirmation-links';
+        var a = document.createElement('a');
+        a.href = './';
+        a.textContent = 'Book a new meeting';
+        links.appendChild(a);
+        content.appendChild(links);
+      }
+
       ConfigLoader.loadAll()
         .then(function (config) {
           ApiClient.init(config.settings.apps_script_url);
-          TimezoneUtil.detect(config.settings.default_timezone || 'America/New_York');
+          var defaultTz = config.settings.default_timezone || 'America/New_York';
+          var storedTz = null;
+          try { storedTz = localStorage.getItem(TZ_STORAGE_KEY); } catch (e) { /* ignore */ }
+          TimezoneUtil.detect(storedTz || defaultTz);
+          if (storedTz) TimezoneUtil.setTimezone(storedTz);
           populateTimezoneSelector();
 
           loading.classList.add('visible');
+          loading.setAttribute('aria-hidden', 'false');
           return ApiClient.getBooking(token);
         })
         .then(function (result) {
           loading.classList.remove('visible');
+          loading.setAttribute('aria-hidden', 'true');
           booking = result.booking;
 
           if (booking.status === 'cancelled') {
-            bookingInfo.textContent = '';
-            var h2 = document.createElement('h2');
-            h2.style.color = '#D63031';
-            h2.textContent = 'Booking Cancelled';
-            content.appendChild(h2);
-            var p = document.createElement('p');
-            p.textContent = 'This booking has been cancelled and cannot be rescheduled.';
-            content.appendChild(p);
-            var links = document.createElement('div');
-            links.className = 'confirmation-links';
-            links.style.marginTop = '16px';
-            var a = document.createElement('a');
-            a.href = './';
-            a.textContent = 'Book a new meeting';
-            links.appendChild(a);
-            content.appendChild(links);
+            renderStatusMessage(
+              'Booking Cancelled',
+              'This booking has been cancelled and cannot be rescheduled.',
+              true
+            );
             return;
           }
 
           if (booking.status === 'rescheduled') {
-            bookingInfo.textContent = '';
-            var h2r = document.createElement('h2');
-            h2r.textContent = 'Already Rescheduled';
-            content.appendChild(h2r);
-            var pr = document.createElement('p');
-            pr.textContent = 'This booking has already been rescheduled. Please use the link from your latest confirmation email.';
-            content.appendChild(pr);
+            renderStatusMessage(
+              'Already Rescheduled',
+              'This booking has already been rescheduled. Please use the link from your latest confirmation email.',
+              false
+            );
             return;
           }
 
-          bookingInfo.textContent = 'Rescheduling: ' + booking.meetingTypeId +
+          bookingInfo.textContent = 'Rescheduling: ' + (booking.meetingTypeName || booking.meetingTypeId) +
             ' (currently ' + TimezoneUtil.formatDateTime(booking.start) + ')' +
             ' — Select a new time below';
 
-          // Determine duration from start/end
           var duration = Math.round((new Date(booking.end) - new Date(booking.start)) / 60000);
 
           var containerEl = document.getElementById('calendar-container');
+          var tzPlugins = (typeof FullCalendarIntlTimezonePlugin !== 'undefined')
+            ? [FullCalendarIntlTimezonePlugin]
+            : [];
           calendar = new FullCalendar.Calendar(containerEl, {
+            plugins: tzPlugins,
             initialDate: booking.start,
             initialView: 'timeGridWeek',
             headerToolbar: {
@@ -143,11 +193,15 @@
               right: 'timeGridWeek,timeGridDay',
             },
             allDaySlot: false,
-            slotMinTime: '09:00:00',
-            slotMaxTime: '17:00:00',
+            slotMinTime: '08:00:00',
+            slotMaxTime: '20:00:00',
             timeZone: TimezoneUtil.getTimezone() || 'local',
-            height: 'auto',
+            contentHeight: 500,
+            expandRows: true,
             nowIndicator: true,
+            eventClassNames: function () {
+              return ['available-slot'];
+            },
             events: function (info, successCb, failureCb) {
               ApiClient.getAvailableSlots(info.startStr, info.endStr, duration)
                 .then(function (r) {
@@ -156,9 +210,7 @@
                       title: 'Available',
                       start: s.start,
                       end: s.end,
-                      backgroundColor: 'rgba(0, 112, 60, 0.15)',
-                      borderColor: 'rgb(0, 112, 60)',
-                      textColor: '#2D3436',
+                      classNames: ['available-slot'],
                       extendedProps: {
                         utcStart: s.start,
                         utcEnd: s.end,
@@ -177,20 +229,23 @@
               if (!confirm('Reschedule to ' + TimezoneUtil.formatDateTime(newStart) + '?')) return;
 
               loading.classList.add('visible');
+              loading.setAttribute('aria-hidden', 'false');
               ApiClient.rescheduleBooking(token, newStart, newEnd)
                 .then(function (res) {
                   loading.classList.remove('visible');
+                  loading.setAttribute('aria-hidden', 'true');
                   content.style.display = 'none';
                   resultDiv.style.display = 'block';
                   resultDiv.textContent = '';
 
                   var checkmark = document.createElement('div');
                   checkmark.className = 'checkmark';
+                  checkmark.setAttribute('aria-hidden', 'true');
                   checkmark.textContent = '\u2713';
                   resultDiv.appendChild(checkmark);
 
                   var h2 = document.createElement('h2');
-                  h2.textContent = 'Rescheduled!';
+                  h2.textContent = 'Rescheduled';
                   resultDiv.appendChild(h2);
 
                   var details = document.createElement('dl');
@@ -220,17 +275,20 @@
                     reschedA.textContent = 'Reschedule Again';
                     links.appendChild(reschedA);
                   }
+                  var homeA = document.createElement('a');
+                  homeA.href = './';
+                  homeA.textContent = 'Book Another';
+                  links.appendChild(homeA);
                   resultDiv.appendChild(links);
 
                   var note = document.createElement('p');
-                  note.style.marginTop = '16px';
-                  note.style.fontSize = '0.85rem';
-                  note.style.color = '#636E72';
+                  note.className = 'confirmation-note';
                   note.textContent = 'Updated calendar invites and emails have been sent.';
                   resultDiv.appendChild(note);
                 })
                 .catch(function (err) {
                   loading.classList.remove('visible');
+                  loading.setAttribute('aria-hidden', 'true');
                   showError(err.message || 'Failed to reschedule.');
                   if (err.code === 'SLOT_TAKEN') {
                     calendar.refetchEvents();
@@ -242,22 +300,12 @@
         })
         .catch(function (err) {
           loading.classList.remove('visible');
-          bookingInfo.textContent = '';
-          var h2 = document.createElement('h2');
-          h2.style.color = '#D63031';
-          h2.textContent = err.code === 'NOT_FOUND' ? 'Booking Not Found' : 'Error';
-          content.appendChild(h2);
-          var p = document.createElement('p');
-          p.textContent = err.message || 'Could not load booking details.';
-          content.appendChild(p);
-          var links = document.createElement('div');
-          links.className = 'confirmation-links';
-          links.style.marginTop = '16px';
-          var a = document.createElement('a');
-          a.href = './';
-          a.textContent = 'Book a new meeting';
-          links.appendChild(a);
-          content.appendChild(links);
+          loading.setAttribute('aria-hidden', 'true');
+          renderStatusMessage(
+            err.code === 'NOT_FOUND' ? 'Booking Not Found' : 'Error',
+            err.message || 'Could not load booking details.',
+            true
+          );
         });
     })();
   </script>

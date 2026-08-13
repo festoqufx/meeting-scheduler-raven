@@ -80,12 +80,12 @@ var CancelPage = (function () {
     }
 
     var warn = document.createElement('p');
+    warn.className = 'confirmation-note';
     warn.textContent = 'This cannot be undone.';
     container.appendChild(warn);
 
     var actions = document.createElement('div');
     actions.className = 'confirmation-links';
-    actions.style.marginTop = '16px';
 
     var yes = document.createElement('button');
     yes.id = 'confirm-cancel-btn';
@@ -100,7 +100,7 @@ var CancelPage = (function () {
 
     var no = document.createElement('a');
     no.href = './';
-    no.className = 'btn';
+    no.className = 'btn btn-secondary';
     no.textContent = 'No, keep my booking';
     actions.appendChild(no);
 
@@ -146,13 +146,12 @@ var CancelPage = (function () {
     container.appendChild(h2);
 
     var p = document.createElement('p');
-    p.style.marginTop = '12px';
+    p.className = 'confirmation-note';
     p.textContent = body;
     container.appendChild(p);
 
     var links = document.createElement('div');
     links.className = 'confirmation-links';
-    links.style.marginTop = '16px';
     var a = document.createElement('a');
     a.href = './';
     a.textContent = 'Back to scheduling';

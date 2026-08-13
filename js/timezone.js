@@ -77,7 +77,7 @@ const TimezoneUtil = (function () {
   }
 
   function getCommonTimezones() {
-    return [
+    var list = [
       { value: 'America/New_York', label: 'Eastern Time (ET)' },
       { value: 'America/Chicago', label: 'Central Time (CT)' },
       { value: 'America/Denver', label: 'Mountain Time (MT)' },
@@ -86,10 +86,20 @@ const TimezoneUtil = (function () {
       { value: 'Pacific/Honolulu', label: 'Hawaii Time (HT)' },
       { value: 'Europe/London', label: 'GMT / BST' },
       { value: 'Europe/Paris', label: 'Central European Time (CET)' },
+      { value: 'Asia/Manila', label: 'Philippines Time (PHT)' },
+      { value: 'Asia/Singapore', label: 'Singapore Time (SGT)' },
       { value: 'Asia/Tokyo', label: 'Japan Standard Time (JST)' },
       { value: 'Asia/Shanghai', label: 'China Standard Time (CST)' },
       { value: 'Australia/Sydney', label: 'Australian Eastern Time (AET)' },
+      { value: 'UTC', label: 'UTC' },
     ];
+
+    // Ensure the active/detected timezone is always selectable
+    var current = _currentTimezone;
+    if (current && !list.some(function (tz) { return tz.value === current; })) {
+      list.unshift({ value: current, label: current.replace(/_/g, ' ') });
+    }
+    return list;
   }
 
   return {

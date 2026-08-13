@@ -3,115 +3,207 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f4f4f4" media="(prefers-color-scheme: light)">
   <title>Schedule a Meeting</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('scheduler-theme');
+        var theme = (stored === 'light' || stored === 'dark')
+          ? stored
+          : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+        document.documentElement.style.colorScheme = theme;
+      } catch (e) { /* ignore */ }
+    })();
+  </script>
   <link rel="stylesheet" href="css/styles.css">
   <script src="lib/js-yaml.min.js"></script>
   <script src="lib/fullcalendar.min.js"></script>
+  <script src="js/fc-timezone.js"></script>
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
   <div class="container">
     <header class="header">
-      <h1>Schedule a Meeting</h1>
-      <div class="timezone-selector" id="timezone-selector">
-        <label for="timezone-select">Timezone:</label>
-        <select id="timezone-select" aria-label="Select your timezone"></select>
+      <div class="header-brand">
+        <span class="header-eyebrow">Meeting Scheduler</span>
+        <h1>Schedule a Meeting</h1>
+      </div>
+      <div class="header-controls">
+        <div class="timezone-selector" id="timezone-selector">
+          <label for="timezone-select">Time Zone</label>
+          <select id="timezone-select" aria-label="Select your timezone"></select>
+        </div>
+        <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false" aria-label="Switch to dark mode" title="Switch to dark mode">
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M21 14.5A8.5 8.5 0 1 1 9.5 3a7 7 0 0 0 11.5 11.5z"/>
+          </svg>
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+          </svg>
+        </button>
       </div>
     </header>
 
-    <div class="steps">
-      <div class="step-indicator" id="step-indicator">
-        <span class="step active" data-step="1">1. Meeting Type</span>
-        <span class="step" data-step="2">2. Duration</span>
-        <span class="step" data-step="3">3. Date &amp; Time</span>
-        <span class="step" data-step="4">4. Your Details</span>
-        <span class="step" data-step="5">5. Confirmation</span>
+    <div class="steps" aria-label="Booking progress">
+      <div class="step-indicator" id="step-indicator" role="list">
+        <button type="button" class="step active" data-step="1" role="listitem" aria-current="step">1. Meeting Type</button>
+        <button type="button" class="step" data-step="2" role="listitem" disabled>2. Duration</button>
+        <button type="button" class="step" data-step="3" role="listitem" disabled>3. Date &amp; Time</button>
+        <button type="button" class="step" data-step="4" role="listitem" disabled>4. Your Details</button>
+        <button type="button" class="step" data-step="5" role="listitem" disabled>5. Confirmation</button>
+      </div>
+      <div class="step-progress" aria-hidden="true">
+        <div class="step-progress-bar" id="step-progress-bar"></div>
       </div>
     </div>
 
-    <!-- Step 1: Meeting Type Selection -->
-    <section id="step-1" class="step-content active" aria-label="Select meeting type">
-      <h2>Select a Meeting Type</h2>
-      <div id="meeting-types" class="meeting-types-grid"></div>
-    </section>
+    <main id="main-content">
+      <!-- Step 1: Meeting Type Selection -->
+      <section id="step-1" class="step-content active" aria-label="Select meeting type">
+        <h2>Select a Meeting Type</h2>
+        <p class="step-lead">Choose the kind of meeting that best fits what you need.</p>
+        <div id="meeting-types" class="meeting-types-grid"></div>
+      </section>
 
-    <!-- Step 2: Duration Selection -->
-    <section id="step-2" class="step-content" aria-label="Select meeting duration">
-      <h2>Choose a Duration</h2>
-      <p id="selected-type-info" class="selected-info"></p>
-      <button class="btn btn-back" id="back-to-step-1" aria-label="Go back to meeting type selection">&larr; Back</button>
-      <div id="duration-options" class="duration-grid"></div>
-    </section>
+      <!-- Step 2: Duration Selection -->
+      <section id="step-2" class="step-content" aria-label="Select meeting duration">
+        <h2>Choose a Duration</h2>
+        <p id="selected-type-info" class="selected-info"></p>
+        <button class="btn btn-back" id="back-to-step-1" aria-label="Go back to meeting type selection">&larr; Back</button>
+        <div id="duration-options" class="duration-grid"></div>
+      </section>
 
-    <!-- Step 3: Calendar / Slot Selection -->
-    <section id="step-3" class="step-content" aria-label="Select date and time">
-      <h2>Choose a Time</h2>
-      <p id="selected-duration-info" class="selected-info"></p>
-      <button class="btn btn-back" id="back-to-step-2" aria-label="Go back to duration selection">&larr; Back</button>
-      <div id="calendar-container" class="calendar-container"></div>
-    </section>
+      <!-- Step 3: Calendar / Slot Selection -->
+      <section id="step-3" class="step-content" aria-label="Select date and time">
+        <h2>Choose a Time</h2>
+        <p id="selected-duration-info" class="selected-info"></p>
+        <div class="step-3-toolbar">
+          <button class="btn btn-back" id="back-to-step-2" aria-label="Go back to duration selection">&larr; Back</button>
+          <button type="button" class="btn btn-secondary" id="toggle-availability-settings" aria-expanded="false" aria-controls="availability-panel">
+            <span class="icon" aria-hidden="true">&#9881;</span> Availability Settings
+          </button>
+        </div>
 
-    <!-- Step 4: Booking Form -->
-    <section id="step-4" class="step-content" aria-label="Enter your details">
-      <h2>Your Details</h2>
-      <p id="selected-slot-info" class="selected-info"></p>
-      <div id="instruction-banner" class="instruction-banner"></div>
-      <button class="btn btn-back" id="back-to-step-3" aria-label="Go back to time selection">&larr; Back</button>
-      <form id="booking-form" novalidate>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="first-name">First Name <span class="required">*</span></label>
-            <input type="text" id="first-name" name="firstName" required aria-required="true">
-            <span class="error-message" id="first-name-error"></span>
+        <!-- Availability Settings Panel -->
+        <div id="availability-panel" class="availability-panel hidden" aria-label="Configure availability settings">
+          <div class="availability-panel-header">
+            <h3>Availability Settings</h3>
+            <button type="button" class="btn-close" id="close-availability-panel" aria-label="Close settings">&times;</button>
+          </div>
+          <div class="availability-panel-body">
+            <!-- Available Days -->
+            <div class="setting-group">
+              <label class="setting-label">Available Days</label>
+              <div class="days-picker" id="days-picker">
+                <button type="button" class="day-pill" data-day="1">Mon</button>
+                <button type="button" class="day-pill" data-day="2">Tue</button>
+                <button type="button" class="day-pill" data-day="3">Wed</button>
+                <button type="button" class="day-pill" data-day="4">Thu</button>
+                <button type="button" class="day-pill" data-day="5">Fri</button>
+                <button type="button" class="day-pill" data-day="6">Sat</button>
+                <button type="button" class="day-pill" data-day="0">Sun</button>
+              </div>
+            </div>
+
+            <!-- Available Time Slots -->
+            <div class="setting-group">
+              <label class="setting-label">Available Time Slots</label>
+              <div id="time-ranges-container" class="time-ranges-container"></div>
+            </div>
+
+            <!-- Blocked Dates -->
+            <div class="setting-group">
+              <label class="setting-label">Blocked Dates (Holidays / Personal Leave)</label>
+              <div class="blocked-date-input-row">
+                <input type="date" id="blocked-date-input" aria-label="Select blocked date">
+                <button type="button" class="btn btn-secondary btn-sm" id="add-blocked-date">Block Date</button>
+              </div>
+              <div id="blocked-dates-list" class="blocked-dates-list"></div>
+            </div>
+          </div>
+          <div class="availability-panel-footer">
+            <div class="footer-actions">
+              <button type="button" class="btn btn-secondary btn-sm" id="add-time-range">+ Add Time Range</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="reset-availability">Reset Defaults</button>
+              <button type="button" class="btn btn-primary btn-sm" id="save-availability">Save Settings</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="calendar-container" class="calendar-container"></div>
+      </section>
+
+      <!-- Step 4: Booking Form -->
+      <section id="step-4" class="step-content" aria-label="Enter your details">
+        <h2>Your Details</h2>
+        <p id="selected-slot-info" class="selected-info"></p>
+        <div id="instruction-banner" class="instruction-banner"></div>
+        <button class="btn btn-back" id="back-to-step-3" aria-label="Go back to time selection">&larr; Back</button>
+        <form id="booking-form" novalidate>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="first-name">First Name <span class="required">*</span></label>
+              <input type="text" id="first-name" name="firstName" required aria-required="true" autocomplete="given-name">
+              <span class="error-message" id="first-name-error" role="alert"></span>
+            </div>
+            <div class="form-group">
+              <label for="last-name">Last Name <span class="required">*</span></label>
+              <input type="text" id="last-name" name="lastName" required aria-required="true" autocomplete="family-name">
+              <span class="error-message" id="last-name-error" role="alert"></span>
+            </div>
           </div>
           <div class="form-group">
-            <label for="last-name">Last Name <span class="required">*</span></label>
-            <input type="text" id="last-name" name="lastName" required aria-required="true">
-            <span class="error-message" id="last-name-error"></span>
+            <label for="email">Email Address <span class="required">*</span></label>
+            <input type="email" id="email" name="email" required aria-required="true" autocomplete="email">
+            <span class="error-message" id="email-error" role="alert"></span>
           </div>
-        </div>
-        <div class="form-group">
-          <label for="email">Email Address <span class="required">*</span></label>
-          <input type="email" id="email" name="email" required aria-required="true">
-          <span class="error-message" id="email-error"></span>
-        </div>
-        <div class="form-group">
-          <label for="format">Meeting Format <span class="required">*</span></label>
-          <select id="format" name="format" required aria-required="true">
-            <option value="">Select format...</option>
-          </select>
-          <span class="error-message" id="format-error"></span>
-        </div>
-        <div class="form-group">
-          <label for="purpose">Meeting Purpose</label>
-          <textarea id="purpose" name="purpose" rows="3" placeholder="What would you like to discuss?"></textarea>
-        </div>
-        <div class="form-group">
-          <label for="notes">Other notes, links, or information</label>
-          <textarea id="notes" name="notes" rows="3" placeholder="Any links, documents, or context you'd like me to review before we meet?"></textarea>
-        </div>
-        <button type="submit" class="btn btn-primary" id="submit-booking">Confirm Booking</button>
-      </form>
-    </section>
+          <div class="form-group">
+            <label for="format">Meeting Format <span class="required">*</span></label>
+            <select id="format" name="format" required aria-required="true">
+              <option value="">Select format...</option>
+            </select>
+            <span class="error-message" id="format-error" role="alert"></span>
+          </div>
+          <div class="form-group">
+            <label for="purpose">Meeting Purpose</label>
+            <textarea id="purpose" name="purpose" rows="3" placeholder="What would you like to discuss?"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="notes">Other notes, links, or information</label>
+            <textarea id="notes" name="notes" rows="3" placeholder="Any links, documents, or context you'd like me to review before we meet?"></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary" id="submit-booking">Confirm Booking</button>
+        </form>
+      </section>
 
-    <!-- Step 5: Confirmation -->
-    <section id="step-5" class="step-content" aria-label="Booking confirmation">
-      <div id="confirmation-content"></div>
-    </section>
+      <!-- Step 5: Confirmation -->
+      <section id="step-5" class="step-content" aria-label="Booking confirmation">
+        <div id="confirmation-content"></div>
+      </section>
+    </main>
 
     <!-- Loading overlay -->
-    <div id="loading" class="loading-overlay" aria-hidden="true">
-      <div class="spinner"></div>
+    <div id="loading" class="loading-overlay" aria-hidden="true" role="status">
+      <div class="spinner" aria-hidden="true"></div>
       <p>Processing...</p>
     </div>
 
     <!-- Error display -->
     <div id="error-banner" class="error-banner" role="alert" aria-live="polite"></div>
+    <div id="toast-copied" class="toast-copied" role="status" aria-live="polite">Copied to clipboard</div>
   </div>
 
+  <script src="js/theme.js"></script>
   <script src="js/config-loader.js"></script>
   <script src="js/timezone.js"></script>
   <script src="js/api-client.js"></script>
+  <script src="js/availability.js"></script>
   <script src="js/calendar.js"></script>
   <script src="js/booking-form.js"></script>
   <script src="js/app.js"></script>

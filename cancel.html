@@ -3,37 +3,68 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
   <title>Cancel Booking</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('scheduler-theme');
+        var theme = (stored === 'light' || stored === 'dark')
+          ? stored
+          : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+        document.documentElement.style.colorScheme = theme;
+      } catch (e) { /* ignore */ }
+    })();
+  </script>
   <link rel="stylesheet" href="css/styles.css">
   <script src="lib/js-yaml.min.js"></script>
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
   <div class="container">
     <header class="header">
-      <h1>Cancel Booking</h1>
+      <div class="header-brand">
+        <span class="header-eyebrow">Meeting Scheduler</span>
+        <h1>Cancel Booking</h1>
+      </div>
+      <div class="header-controls">
+        <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false" aria-label="Switch to dark mode" title="Switch to dark mode">
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M21 14.5A8.5 8.5 0 1 1 9.5 3a7 7 0 0 0 11.5 11.5z"/>
+          </svg>
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+          </svg>
+        </button>
+      </div>
     </header>
 
-    <section class="step-content active">
-      <div id="cancel-content" class="confirmation-box">
-        <p>Loading booking details…</p>
-      </div>
-    </section>
+    <main id="main-content">
+      <section class="step-content active">
+        <div id="cancel-content" class="confirmation-box">
+          <p>Loading booking details…</p>
+        </div>
+      </section>
+    </main>
 
-    <div id="loading" class="loading-overlay" aria-hidden="true">
-      <div class="spinner"></div>
+    <div id="loading" class="loading-overlay" aria-hidden="true" role="status">
+      <div class="spinner" aria-hidden="true"></div>
       <p>Cancelling...</p>
     </div>
 
     <div id="error-banner" class="error-banner" role="alert" aria-live="polite"></div>
   </div>
 
+  <script src="js/theme.js"></script>
   <script src="js/config-loader.js"></script>
   <script src="js/timezone.js"></script>
   <script src="js/api-client.js"></script>
   <script src="js/cancel.js"></script>
   <script>
-    // Cancellation is gated behind an explicit confirm click inside CancelPage \u2014
+    // Cancellation is gated behind an explicit confirm click inside CancelPage —
     // it must never run on page load, or email link-scanners will cancel bookings.
     CancelPage.init();
   </script>

@@ -49,13 +49,18 @@ const ApiClient = (function () {
    */
   function tryServePrefetch(startDate, endDate, durationMinutes) {
     if (!_prefetchPromise || !_prefetchRange) return null;
-    // Check if requested range is within prefetched range
-    if (new Date(startDate) < new Date(_prefetchRange.start) ||
-        new Date(endDate) > new Date(_prefetchRange.end)) {
-      return null;
-    }
+    var prefetchStart = new Date(_prefetchRange.start).getTime();
+    var prefetchEnd = new Date(_prefetchRange.end).getTime();
     var reqStart = new Date(startDate).getTime();
     var reqEnd = new Date(endDate).getTime();
+
+    // Reject only if requested range is outside the prefetch bounds
+    if (reqEnd <= prefetchStart || reqStart >= prefetchEnd || reqEnd > prefetchEnd) {
+      return null;
+    }
+
+    // Clamp reqStart to prefetchStart so views starting earlier in the week/day receive pre-fetched slots
+    var effectiveStart = Math.max(reqStart, prefetchStart);
     var durationMs = durationMinutes * 60 * 1000;
 
     return _prefetchPromise.then(function (result) {
@@ -64,7 +69,7 @@ const ApiClient = (function () {
       var filtered = result.slots.filter(function (slot) {
         var s = new Date(slot.start).getTime();
         var e = new Date(slot.end).getTime();
-        return s >= reqStart && e <= reqEnd;
+        return s >= effectiveStart && e <= reqEnd;
       });
       // For durations > 15 min, merge consecutive 15-min slots into
       // larger slots of the requested duration
