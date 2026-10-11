@@ -21,7 +21,7 @@ const CAL = 'cal-primary';
 
 const BASE_CONFIG = {
   CALENDAR_ID: CAL,
-  OWNER_NAME: 'Jeremy Manning',
+  OWNER_NAME: 'Ferdinand Estoque',
   GITHUB_PAGES_URL: 'https://pages.example/booking',
   AVAILABILITY_PATTERN: 'Jeremy office hours',
   MIN_NOTICE_HOURS: '0',

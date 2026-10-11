@@ -69,7 +69,7 @@ The backend reads configuration from `PropertiesService.getScriptProperties()`. 
 |-|-|-|
 | `CALENDAR_ID` | Google Calendar ID to manage | `your-email@gmail.com` or `primary` |
 | `OWNER_EMAIL` | Your email (for notification emails) | `you@example.com` |
-| `OWNER_NAME` | Your display name (used in emails) | `Jeremy Manning` |
+| `OWNER_NAME` | Your display name (used in emails) | `Ferdinand Estoque` |
 | `SPREADSHEET_ID` | ID of the Google Sheet for booking storage | `1aBcDeFgHiJkLmNoPqRsTuVwXyZ` |
 | `GITHUB_PAGES_URL` | Base URL of the frontend (no trailing slash) | `https://username.github.io/scheduler` |
 | `AVAILABILITY_PATTERN` | Calendar event title prefix that marks available slots | `Jeremy office hours` |
