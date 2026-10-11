@@ -68,6 +68,21 @@
       <section id="step-1" class="step-content active" aria-label="Select meeting type">
         <h2>Select a Meeting Type</h2>
         <p class="step-lead">Choose the kind of meeting that best fits what you need.</p>
+        <div class="meeting-type-search-wrap">
+          <label for="meeting-type-search" class="sr-only">Search meeting types</label>
+          <div class="meeting-type-search-row">
+            <input
+              type="search"
+              id="meeting-type-search"
+              class="meeting-type-search"
+              placeholder="Search meeting types..."
+              autocomplete="off"
+              aria-label="Search meeting types"
+            >
+            <button type="button" id="meeting-type-clear" class="btn btn-secondary btn-sm hidden" aria-label="Clear meeting type search">Clear</button>
+          </div>
+          <p id="meeting-type-search-meta" class="meeting-type-search-meta" aria-live="polite"></p>
+        </div>
         <div id="meeting-types" class="meeting-types-grid"></div>
       </section>
 
@@ -85,10 +100,16 @@
         <p id="selected-duration-info" class="selected-info"></p>
         <div class="step-3-toolbar">
           <button class="btn btn-back" id="back-to-step-2" aria-label="Go back to duration selection">&larr; Back</button>
-          <button type="button" class="btn btn-secondary" id="toggle-availability-settings" aria-expanded="false" aria-controls="availability-panel">
-            <span class="icon" aria-hidden="true">&#9881;</span> Availability Settings
-          </button>
+          <div class="step-3-actions">
+            <button type="button" class="btn btn-secondary btn-sm" id="jump-to-next-available">Next Available</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="jump-next-week">Next Week</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="jump-today">Today</button>
+            <button type="button" class="btn btn-secondary" id="toggle-availability-settings" aria-expanded="false" aria-controls="availability-panel">
+              <span class="icon" aria-hidden="true">&#9881;</span> Availability Settings
+            </button>
+          </div>
         </div>
+        <p id="calendar-status" class="calendar-status" aria-live="polite"></p>
 
         <!-- Availability Settings Panel -->
         <div id="availability-panel" class="availability-panel hidden" aria-label="Configure availability settings">

@@ -75,6 +75,7 @@ describeIfExists('BookingForm.validateAll', () => {
 
 describeIfExists('BookingForm.extractFormData', () => {
   beforeEach(() => {
+    localStorage.clear();
     // Build DOM using safe DOM methods (not innerHTML)
     document.body.textContent = '';
     const form = document.createElement('form');
@@ -133,5 +134,37 @@ describeIfExists('BookingForm.extractFormData', () => {
     expect(data.firstName).toBe('');
     expect(data.lastName).toBe('');
     expect(data.email).toBe('');
+  });
+
+  test('persists and restores draft data', () => {
+    document.getElementById('first-name').value = 'Alex';
+    document.getElementById('last-name').value = 'Rivera';
+    document.getElementById('email').value = 'alex@example.com';
+    document.getElementById('purpose').value = 'Weekly sync';
+    document.getElementById('notes').value = 'Bring agenda';
+    BookingForm.persistDraft();
+
+    document.getElementById('first-name').value = '';
+    document.getElementById('last-name').value = '';
+    document.getElementById('email').value = '';
+    document.getElementById('purpose').value = '';
+    document.getElementById('notes').value = '';
+
+    BookingForm.restoreDraft();
+    const data = BookingForm.extractFormData();
+    expect(data.firstName).toBe('Alex');
+    expect(data.lastName).toBe('Rivera');
+    expect(data.email).toBe('alex@example.com');
+    expect(data.purpose).toBe('Weekly sync');
+    expect(data.notes).toBe('Bring agenda');
+  });
+
+  test('reset clears persisted draft', () => {
+    document.getElementById('first-name').value = 'Jamie';
+    BookingForm.persistDraft();
+    expect(localStorage.getItem('scheduler-booking-draft')).toBeTruthy();
+
+    BookingForm.reset();
+    expect(localStorage.getItem('scheduler-booking-draft')).toBeNull();
   });
 });

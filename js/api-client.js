@@ -7,6 +7,9 @@ const ApiClient = (function () {
   let _baseUrl = null;
   var _prefetchPromise = null; // Promise<{slots: [{start,end}]}> for full date range
   var _prefetchRange = null;   // {start: ISO, end: ISO}
+  var _slotsCache = {};
+  var _slotsCacheOrder = [];
+  var MAX_SLOTS_CACHE_ENTRIES = 24;
 
   function init(appsScriptUrl) {
     _baseUrl = appsScriptUrl;
@@ -40,6 +43,39 @@ const ApiClient = (function () {
   function invalidatePrefetch() {
     _prefetchPromise = null;
     _prefetchRange = null;
+    clearSlotsCache();
+  }
+
+  function clearSlotsCache() {
+    _slotsCache = {};
+    _slotsCacheOrder = [];
+  }
+
+  function makeSlotsCacheKey(startDate, endDate, durationMinutes) {
+    return [startDate, endDate, durationMinutes].join('|');
+  }
+
+  function getCachedSlots(cacheKey) {
+    return _slotsCache[cacheKey] || null;
+  }
+
+  function setCachedSlots(cacheKey, requestPromise) {
+    if (!_slotsCache[cacheKey]) {
+      _slotsCacheOrder.push(cacheKey);
+      while (_slotsCacheOrder.length > MAX_SLOTS_CACHE_ENTRIES) {
+        var evicted = _slotsCacheOrder.shift();
+        if (evicted) delete _slotsCache[evicted];
+      }
+    }
+    _slotsCache[cacheKey] = requestPromise;
+  }
+
+  function removeCachedSlots(cacheKey) {
+    if (!_slotsCache[cacheKey]) return;
+    delete _slotsCache[cacheKey];
+    _slotsCacheOrder = _slotsCacheOrder.filter(function (key) {
+      return key !== cacheKey;
+    });
   }
 
   /**
@@ -159,20 +195,34 @@ const ApiClient = (function () {
     var fromPrefetch = tryServePrefetch(startDate, endDate, durationMinutes);
     if (fromPrefetch) return fromPrefetch;
 
-    // Fallback: fresh API call
-    return apiCall('getAvailableSlots', {
+    var cacheKey = makeSlotsCacheKey(startDate, endDate, durationMinutes);
+    var cached = getCachedSlots(cacheKey);
+    if (cached) return cached;
+
+    var requestPromise = apiCall('getAvailableSlots', {
       startDate: startDate,
       endDate: endDate,
       durationMinutes: durationMinutes,
+    }).catch(function (err) {
+      removeCachedSlots(cacheKey);
+      throw err;
     });
+    setCachedSlots(cacheKey, requestPromise);
+    return requestPromise;
   }
 
   async function createBooking(bookingData) {
-    return apiCall('createBooking', bookingData);
+    return apiCall('createBooking', bookingData).then(function (result) {
+      invalidatePrefetch();
+      return result;
+    });
   }
 
   async function cancelBooking(token) {
-    return apiCall('cancelBooking', { token: token });
+    return apiCall('cancelBooking', { token: token }).then(function (result) {
+      invalidatePrefetch();
+      return result;
+    });
   }
 
   async function getBooking(token) {
@@ -184,6 +234,9 @@ const ApiClient = (function () {
       oldToken: oldToken,
       newStart: newStart,
       newEnd: newEnd,
+    }).then(function (result) {
+      invalidatePrefetch();
+      return result;
     });
   }
 

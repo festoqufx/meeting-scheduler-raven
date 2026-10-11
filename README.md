@@ -9,12 +9,17 @@ A self-hosted scheduling application inspired by YouCanBook.me and Calendly, run
 ## Features
 
 - **Meeting type selection** — configurable via YAML (office hours, check-ins, project meetings, custom durations)
+- **Meeting type search** — instant filtering with result counts, clear action, and keyboard escape to quickly find the right meeting type
+- **Flexible duration options** — supports custom `allowed_durations` values beyond the default presets
 - **Availability Settings** — configure available days (Mon-Sun), custom time ranges, and blocked dates (holidays/leave) with automatic `localStorage` persistence and real-time slot filtering
 - **Contextual Time Zone selector** — conveniently located on the Date & Time tab for streamlined scheduling
 - **High-contrast, accessible calendar UI** — clear, high-contrast text rendering for time slots and labels in both Light and Dark modes
-- **High-performance prefetching** — instant slot loading and client-side slot merging for fast, responsive interaction
+- **Calendar quick navigation** — one-click actions for Today, Next Week, and Next Available, plus live availability status guidance
+- **Mobile-first calendar ergonomics** — sticky Step 3 action bar, larger touch targets, and compact day-first calendar behavior on small screens
+- **Micro-interaction polish** — tactile button/slot feedback, step layout stability, and calendar skeleton loading for smoother perceived performance
+- **High-performance availability loading** — page-load prefetching, client-side slot merging, and request deduplication/caching for faster calendar navigation
 - **Calendar availability** — reads availability windows from Google Calendar, checks configured calendars for conflicts
-- **Booking form** — collects visitor details, supports in-person and virtual formats with real-time validation
+- **Booking form** — collects visitor details, supports in-person and virtual formats with real-time validation and automatic draft recovery
 - **Email notifications** — sends confirmation, cancellation, and reschedule emails with iCal attachments
 - **Cancel & reschedule** — secure token-based links in every confirmation email
 - **Zero cost** — GitHub Pages (free) + Google Apps Script (free) + Google Sheets (free)

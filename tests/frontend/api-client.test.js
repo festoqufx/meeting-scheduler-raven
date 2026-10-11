@@ -55,6 +55,16 @@ describe('ApiClient prefetch cache', () => {
     await ApiClient.getAvailableSlots(FUTURE_START, FUTURE_END, 15);
     expect(global.fetch).toHaveBeenCalledTimes(2); // fresh call, not stale cache
   });
+
+  test('deduplicates identical slot requests after prefetch is invalidated', async () => {
+    ApiClient.invalidatePrefetch();
+    await Promise.all([
+      ApiClient.getAvailableSlots(FUTURE_START, FUTURE_END, 30),
+      ApiClient.getAvailableSlots(FUTURE_START, FUTURE_END, 30),
+      ApiClient.getAvailableSlots(FUTURE_START, FUTURE_END, 30),
+    ]);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('ApiClient client-side merge (larger durations)', () => {
@@ -104,5 +114,24 @@ describe('ApiClient client-side merge (larger durations)', () => {
       const b = new Date(s.end).getTime();
       expect(a < gapEnd && gapStart < b).toBe(false); // must not overlap the gap
     });
+  });
+});
+
+describe('ApiClient invalidation on booking mutations', () => {
+  let ApiClient;
+  beforeEach(() => {
+    jest.resetModules();
+    ApiClient = require('../../js/api-client');
+    global.fetch = mockFetch({ success: true, slots: [], booking: { id: 'b1' } });
+    ApiClient.init('https://example.test/exec');
+  });
+
+  test('createBooking invalidates cached availability', async () => {
+    await ApiClient.getAvailableSlots(FUTURE_START, FUTURE_END, 15);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
+    await ApiClient.createBooking({ start: FUTURE_START, end: FUTURE_END });
+    await ApiClient.getAvailableSlots(FUTURE_START, FUTURE_END, 15);
+    expect(global.fetch).toHaveBeenCalledTimes(3);
   });
 });

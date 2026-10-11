@@ -390,6 +390,7 @@ a:hover {
 .step-content {
   display: none;
   animation: fadeIn 0.28s ease;
+  min-height: 260px;
 }
 
 .step-content.active {
@@ -416,6 +417,53 @@ a:hover {
   max-width: 52ch;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.meeting-type-search-wrap {
+  margin-bottom: 18px;
+}
+
+.meeting-type-search-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.meeting-type-search {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  transition: border-color var(--transition), box-shadow var(--transition), background-color var(--transition);
+}
+
+.meeting-type-search:focus {
+  outline: none;
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.meeting-type-search-meta {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  min-height: 1.3em;
+}
+
 .selected-info {
   font-size: 14px;
   color: var(--text-muted);
@@ -431,6 +479,16 @@ a:hover {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+
+.meeting-type-empty {
+  grid-column: 1 / -1;
+  padding: 20px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  text-align: center;
+  background: var(--surface-soft);
 }
 
 .meeting-type-card {
@@ -508,6 +566,15 @@ a:hover {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 14px;
+}
+
+.duration-empty {
+  grid-column: 1 / -1;
+  padding: 16px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  background: var(--surface-soft);
 }
 
 .duration-card {
@@ -591,7 +658,14 @@ a:hover {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
+}
+
+.calendar-status {
+  min-height: 1.25em;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
 /* Calendar */
@@ -604,6 +678,35 @@ a:hover {
   box-shadow: var(--shadow-soft);
   position: relative;
   contain: layout style;
+}
+
+.calendar-container[aria-busy="true"] {
+  overflow: hidden;
+}
+
+.calendar-skeleton {
+  position: absolute;
+  inset: 16px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, var(--surface-soft), var(--surface), var(--surface-soft));
+  background-size: 200% 100%;
+  animation: skeletonPulse 1.2s ease-in-out infinite;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.calendar-skeleton-line {
+  height: 14px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+}
+
+@keyframes skeletonPulse {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
 }
 
 .fc .fc-timegrid-slot {
@@ -715,6 +818,10 @@ a:hover {
   background-color: var(--slot-hover) !important;
   border-color: var(--text) !important;
   transform: translateY(-1px);
+}
+
+.fc .fc-event.available-slot:active {
+  transform: scale(0.99);
 }
 
 .fc .fc-event .fc-event-main,
@@ -831,6 +938,10 @@ a:hover {
   background: none;
   border-radius: var(--radius-pill);
   color: var(--text);
+}
+
+.btn:active {
+  transform: scale(0.98);
 }
 
 .btn-primary {
@@ -1183,6 +1294,10 @@ a:hover {
     font-size: 22px;
   }
 
+  .step-content {
+    min-height: 220px;
+  }
+
   .meeting-types-grid {
     grid-template-columns: 1fr;
   }
@@ -1423,7 +1538,30 @@ a:hover {
   align-items: center;
   justify-content: center;
 }
+
+@media (max-width: 420px) {
+  .duration-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .header-eyebrow {
+    font-size: 10px;
+  }
 }
+
+@media (max-width: 768px) {
+  .step-3-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding: 8px 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .step-3-actions .btn {
+    min-height: 40px;
+  }
 
   .calendar-container {
     padding: 10px;
@@ -1433,14 +1571,52 @@ a:hover {
     flex-direction: column;
     gap: 8px;
   }
+
+  .fc .fc-button {
+    min-height: 38px !important;
+    padding: 6px 10px !important;
+  }
 }
 
-@media (max-width: 420px) {
-  .duration-grid {
-    grid-template-columns: 1fr 1fr;
+@media (max-width: 640px) {
+  .step-3-toolbar {
+    align-items: stretch;
   }
 
-  .header-eyebrow {
-    font-size: 10px;
+  .step-3-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .step-3-actions .btn {
+    width: 100% !important;
+    justify-content: center;
+  }
+
+  #toggle-availability-settings {
+    grid-column: 1 / -1;
+  }
+
+  .calendar-status {
+    font-size: 12px;
+  }
+
+  .fc .fc-toolbar-title {
+    font-size: 16px !important;
+  }
+
+  .fc .fc-timegrid-event {
+    min-height: 34px !important;
+  }
+
+  .no-slots-message {
+    padding: 26px 12px;
+    font-size: 14px;
+  }
+
+  .calendar-skeleton {
+    inset: 10px;
   }
 }

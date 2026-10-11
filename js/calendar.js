@@ -14,8 +14,15 @@ var CalendarUI = (function () {
   var _prefetchedEvents = null;
   var _seekingSlots = false;
   var _didAutoSeek = false;
+  var _statusEl = null;
   var DEFAULT_MIN_TIME = '09:00:00';
   var DEFAULT_MAX_TIME = '17:00:00';
+
+  function prefersCompactMobileLayout() {
+    return typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 640px)').matches;
+  }
 
   function init(durationMinutes, onSlotSelected) {
     _durationMinutes = durationMinutes;
@@ -25,6 +32,7 @@ var CalendarUI = (function () {
     _prefetchedEvents = null;
     _seekingSlots = false;
     _didAutoSeek = false;
+    _statusEl = document.getElementById('calendar-status');
 
     _containerEl = document.getElementById('calendar-container');
     if (!_containerEl) {
@@ -38,18 +46,61 @@ var CalendarUI = (function () {
       return;
     }
 
-    buildCalendar(_currentMinTime, _currentMaxTime);
+    setCalendarStatus('Loading available times...');
+    setSeekingSlots(false);
+    var initialView = prefersCompactMobileLayout() ? 'timeGridDay' : 'timeGridWeek';
+    buildCalendar(_currentMinTime, _currentMaxTime, initialView);
   }
 
   function showFatal(message) {
     if (!_containerEl) return;
+    hideCalendarSkeleton();
     _containerEl.textContent = '';
     var msg = document.createElement('div');
     msg.className = 'no-slots-message';
     msg.textContent = message;
     _containerEl.appendChild(msg);
+    setCalendarStatus(message);
     if (typeof App !== 'undefined' && App.showError) {
       App.showError(message, 8000);
+    }
+  }
+
+  function setCalendarStatus(message) {
+    if (_statusEl) {
+      _statusEl.textContent = message || '';
+    }
+  }
+
+  function showCalendarSkeleton() {
+    if (!_containerEl) return;
+    _containerEl.setAttribute('aria-busy', 'true');
+    var existing = _containerEl.querySelector('.calendar-skeleton');
+    if (existing) return;
+    var skeleton = document.createElement('div');
+    skeleton.className = 'calendar-skeleton';
+    skeleton.setAttribute('aria-hidden', 'true');
+    for (var i = 0; i < 7; i++) {
+      var line = document.createElement('div');
+      line.className = 'calendar-skeleton-line';
+      skeleton.appendChild(line);
+    }
+    _containerEl.appendChild(skeleton);
+  }
+
+  function hideCalendarSkeleton() {
+    if (!_containerEl) return;
+    _containerEl.setAttribute('aria-busy', 'false');
+    var existing = _containerEl.querySelector('.calendar-skeleton');
+    if (existing) existing.remove();
+  }
+
+  function setSeekingSlots(isSeeking) {
+    _seekingSlots = isSeeking;
+    var nextAvailableBtn = document.getElementById('jump-to-next-available');
+    if (nextAvailableBtn) {
+      nextAvailableBtn.disabled = isSeeking;
+      nextAvailableBtn.textContent = isSeeking ? 'Finding...' : 'Next Available';
     }
   }
 
@@ -68,6 +119,14 @@ var CalendarUI = (function () {
       return 'local';
     }
     return tz;
+  }
+
+  function resolveAvailabilityFilterTimeZone() {
+    var config = ConfigLoader.getConfig();
+    if (config && config.settings && config.settings.default_timezone) {
+      return config.settings.default_timezone;
+    }
+    return (typeof TimezoneUtil !== 'undefined' && TimezoneUtil.getTimezone && TimezoneUtil.getTimezone()) || 'local';
   }
 
   function makeCalendarOptions(minTime, maxTime, initialView, initialDate) {
@@ -112,8 +171,11 @@ var CalendarUI = (function () {
         if (typeof App === 'undefined') return;
         if (isLoading) {
           App.showLoading();
+          showCalendarSkeleton();
+          setCalendarStatus('Loading available times...');
         } else {
           App.hideLoading();
+          hideCalendarSkeleton();
           equalizeSlotRows();
         }
       },
@@ -160,15 +222,16 @@ var CalendarUI = (function () {
 
   function fetchSlots(info, successCallback, failureCallback) {
     var tz = resolveTimeZone();
+    var availabilityTz = resolveAvailabilityFilterTimeZone();
     if (_prefetchedEvents !== null) {
       var cached = _prefetchedEvents;
       _prefetchedEvents = null;
       if (typeof AvailabilitySettings !== 'undefined') {
         cached = cached.filter(function (evt) {
-          return AvailabilitySettings.isSlotAvailable({ start: evt.start, end: evt.end }, tz);
+          return AvailabilitySettings.isSlotAvailable({ start: evt.start, end: evt.end }, availabilityTz);
         });
       }
-      displayEvents(cached);
+      displayEvents(cached, info.start, info.end);
       successCallback(cached);
       maybeSeekWeekWithSlots(cached);
       return;
@@ -182,7 +245,7 @@ var CalendarUI = (function () {
       .then(function (result) {
         var rawSlots = result.slots || [];
         var filteredSlots = typeof AvailabilitySettings !== 'undefined'
-          ? AvailabilitySettings.filterSlots(rawSlots, tz)
+          ? AvailabilitySettings.filterSlots(rawSlots, availabilityTz)
           : rawSlots;
 
         var events = filteredSlots.map(function (slot) {
@@ -221,15 +284,17 @@ var CalendarUI = (function () {
           return;
         }
 
-        displayEvents(events);
+        displayEvents(events, info.start, info.end);
         successCallback(events);
         maybeSeekWeekWithSlots(events);
       })
       .catch(function (err) {
+        hideCalendarSkeleton();
         if (typeof App !== 'undefined') {
           App.showError('Failed to load available times: ' + err.message, 5000);
         }
         showNoSlotsMessage('Could not load available times. Please try again.');
+        setCalendarStatus('Could not load available times. Please try again.');
         failureCallback(err);
       });
   }
@@ -240,12 +305,22 @@ var CalendarUI = (function () {
    */
   function maybeSeekWeekWithSlots(events) {
     if (!_calendar || (events && events.length > 0)) {
-      _seekingSlots = false;
+      setSeekingSlots(false);
       return;
     }
     if (_seekingSlots || _didAutoSeek) return;
-    _seekingSlots = true;
-    _didAutoSeek = true;
+    seekNextAvailable(false);
+  }
+
+  function seekNextAvailable(force) {
+    if (!_calendar) return;
+    if (_seekingSlots) return;
+    if (!force && _didAutoSeek) return;
+    if (!force) {
+      _didAutoSeek = true;
+    }
+    setSeekingSlots(true);
+    setCalendarStatus('Finding the next available time...');
 
     var config = ConfigLoader.getConfig();
     var maxDays = (config && config.settings && config.settings.max_advance_days) || 90;
@@ -257,12 +332,13 @@ var CalendarUI = (function () {
       .then(function (result) {
         var slots = (result && result.slots) || [];
         if (!_calendar) {
-          _seekingSlots = false;
+          setSeekingSlots(false);
           return;
         }
         if (slots.length === 0) {
-          _seekingSlots = false;
+          setSeekingSlots(false);
           showNoSlotsMessage('No available times in the booking window. Please try another duration or check back later.');
+          setCalendarStatus('No available times found in the booking window.');
           return;
         }
         var firstStart = slots[0].start;
@@ -272,20 +348,41 @@ var CalendarUI = (function () {
           }
         }
         _calendar.gotoDate(firstStart);
+        setCalendarStatus('Jumped to the next available week.');
         // gotoDate triggers a fresh fetch; allow that fetch to render normally
-        setTimeout(function () { _seekingSlots = false; }, 0);
+        setTimeout(function () { setSeekingSlots(false); }, 0);
       })
       .catch(function () {
-        _seekingSlots = false;
+        setSeekingSlots(false);
+        setCalendarStatus('Could not find the next available time right now.');
         showNoSlotsMessage();
       });
   }
 
-  function displayEvents(events) {
+  function displayEvents(events, rangeStart, rangeEnd) {
+    hideCalendarSkeleton();
     if (events.length === 0) {
       showNoSlotsMessage();
+      setCalendarStatus('No available times in this view. Try Next Week or Next Available.');
     } else {
       hideNoSlotsMessage();
+      var rangeLabel = formatRangeLabel(rangeStart, rangeEnd);
+      var noun = events.length === 1 ? 'slot' : 'slots';
+      setCalendarStatus('Showing ' + events.length + ' available ' + noun + (rangeLabel ? ' for ' + rangeLabel : '') + '.');
+    }
+  }
+
+  function formatRangeLabel(rangeStart, rangeEnd) {
+    if (!rangeStart || !rangeEnd) return '';
+    try {
+      var tz = resolveTimeZone();
+      var options = { month: 'short', day: 'numeric', timeZone: tz === 'local' ? undefined : tz };
+      var startText = new Intl.DateTimeFormat('en-US', options).format(rangeStart);
+      var endDate = new Date(rangeEnd.getTime() - 1);
+      var endText = new Intl.DateTimeFormat('en-US', options).format(endDate);
+      return startText + '–' + endText;
+    } catch (e) {
+      return '';
     }
   }
 
@@ -395,8 +492,9 @@ var CalendarUI = (function () {
   }
 
   function refresh() {
-    _seekingSlots = false;
+    setSeekingSlots(false);
     if (_calendar) {
+      setCalendarStatus('Refreshing available times...');
       _calendar.refetchEvents();
     }
   }
@@ -404,27 +502,49 @@ var CalendarUI = (function () {
   function setTimezone(timezone) {
     if (!timezone) return;
     TimezoneUtil.setTimezone(timezone);
-    _seekingSlots = false;
+    setSeekingSlots(false);
     _didAutoSeek = false;
     if (_calendar) {
+      setCalendarStatus('Updating calendar timezone...');
       var currentDate = _calendar.getDate();
       var currentView = _calendar.view.type;
       buildCalendar(_currentMinTime, _currentMaxTime, currentView, currentDate);
     }
   }
 
+  function goToNextWeek() {
+    if (!_calendar) return;
+    _calendar.next();
+    setCalendarStatus('Loading next week...');
+  }
+
+  function goToToday() {
+    if (!_calendar) return;
+    _calendar.today();
+    setCalendarStatus('Loading today...');
+  }
+
+  function jumpToNextAvailable() {
+    seekNextAvailable(true);
+  }
+
   function destroy() {
-    _seekingSlots = false;
+    setSeekingSlots(false);
+    hideCalendarSkeleton();
     if (_calendar) {
       _calendar.destroy();
       _calendar = null;
     }
+    setCalendarStatus('');
   }
 
   return {
     init: init,
     refresh: refresh,
     setTimezone: setTimezone,
+    goToNextWeek: goToNextWeek,
+    goToToday: goToToday,
+    jumpToNextAvailable: jumpToNextAvailable,
     destroy: destroy,
   };
 })();

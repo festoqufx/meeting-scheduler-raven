@@ -149,3 +149,18 @@ describeIfExists('Error messages', () => {
     jest.useRealTimers();
   });
 });
+
+describeIfExists('Duration option generation', () => {
+  test('collectDurationOptions includes defaults and valid custom durations', () => {
+    var durations = App.collectDurationOptions([
+      { id: 'a', allowed_durations: [45, 75, '90'] },
+      { id: 'b', allowed_durations: [30, -5, 0, 241, 'invalid'] },
+    ]);
+    expect(durations).toEqual([15, 30, 45, 60, 75, 90]);
+  });
+
+  test('collectDurationOptions falls back to defaults for invalid input', () => {
+    var durations = App.collectDurationOptions(null);
+    expect(durations).toEqual([15, 30, 45, 60]);
+  });
+});

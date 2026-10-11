@@ -5,10 +5,13 @@
 
 var BookingForm = (function () {
   var _locations = [];
+  var DRAFT_STORAGE_KEY = 'scheduler-booking-draft';
+  var DRAFT_FIELDS = ['first-name', 'last-name', 'email', 'format', 'purpose', 'notes'];
 
   function init(locations) {
     _locations = locations || [];
     populateFormatDropdown();
+    restoreDraft();
     setupFormHandler();
   }
 
@@ -18,12 +21,14 @@ var BookingForm = (function () {
     while (select.options.length > 1) {
       select.remove(1);
     }
+    var fragment = document.createDocumentFragment();
     _locations.forEach(function (loc) {
       var option = document.createElement('option');
       option.value = loc.id;
       option.textContent = loc.label;
-      select.appendChild(option);
+      fragment.appendChild(option);
     });
+    select.appendChild(fragment);
   }
 
   function setupFormHandler() {
@@ -44,9 +49,22 @@ var BookingForm = (function () {
           el.classList.remove('invalid');
           var errorEl = document.getElementById(fieldId + '-error');
           if (errorEl) errorEl.textContent = '';
+          persistDraft();
         });
       }
     });
+
+    var optionalFields = ['purpose', 'notes'];
+    optionalFields.forEach(function (fieldId) {
+      var field = document.getElementById(fieldId);
+      if (!field) return;
+      field.addEventListener('input', persistDraft);
+    });
+
+    var format = document.getElementById('format');
+    if (format) {
+      format.addEventListener('change', persistDraft);
+    }
 
     form.addEventListener('submit', function (e) {
       e.preventDefault();
@@ -66,6 +84,52 @@ var BookingForm = (function () {
         App.submitBooking(data);
       }
     });
+  }
+
+  function getDraftFromStorage() {
+    try {
+      var raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function persistDraft() {
+    var form = document.getElementById('booking-form');
+    if (!form) return;
+    var draft = {};
+    DRAFT_FIELDS.forEach(function (fieldId) {
+      var el = document.getElementById(fieldId);
+      if (!el) return;
+      draft[fieldId] = el.value || '';
+    });
+    try {
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    } catch (e) {
+      // Ignore quota/privacy-mode failures.
+    }
+  }
+
+  function restoreDraft() {
+    var draft = getDraftFromStorage();
+    if (!draft) return;
+    DRAFT_FIELDS.forEach(function (fieldId) {
+      if (!Object.prototype.hasOwnProperty.call(draft, fieldId)) return;
+      var el = document.getElementById(fieldId);
+      if (!el) return;
+      el.value = draft[fieldId];
+    });
+  }
+
+  function clearDraft() {
+    try {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+    } catch (e) {
+      // Ignore quota/privacy-mode failures.
+    }
   }
 
   function validateField(name, value) {
@@ -175,6 +239,7 @@ var BookingForm = (function () {
     if (filtered.length === 1) {
       select.value = filtered[0].id;
     }
+    persistDraft();
   }
 
   function reset() {
@@ -183,6 +248,7 @@ var BookingForm = (function () {
       form.reset();
     }
     clearAllErrors();
+    clearDraft();
   }
 
   return {
@@ -192,6 +258,9 @@ var BookingForm = (function () {
     validateAll: validateAll,
     extractFormData: extractFormData,
     updateLocations: updateLocations,
+    clearDraft: clearDraft,
+    persistDraft: persistDraft,
+    restoreDraft: restoreDraft,
   };
 })();
 

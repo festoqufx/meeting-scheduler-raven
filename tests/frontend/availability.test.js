@@ -115,4 +115,21 @@ describe('AvailabilitySettings.isSlotAvailable and filterSlots', () => {
     expect(filtered).toHaveLength(1);
     expect(filtered[0].start).toBe('2026-08-17T10:00:00.000Z');
   });
+
+  test('same slot can be available in scheduler timezone but unavailable in viewer timezone', () => {
+    AvailabilitySettings.save({
+      availableDays: [3], // Wednesday
+      timeRanges: [{ start: '09:00', end: '17:00' }],
+      blockedDates: [],
+    });
+
+    const slot = {
+      // Wednesday 10:30 in America/New_York (UTC-4), but 22:30 in Asia/Manila (UTC+8)
+      start: '2026-10-14T14:30:00.000Z',
+      end: '2026-10-14T14:45:00.000Z',
+    };
+
+    expect(AvailabilitySettings.isSlotAvailable(slot, 'America/New_York')).toBe(true);
+    expect(AvailabilitySettings.isSlotAvailable(slot, 'Asia/Manila')).toBe(false);
+  });
 });

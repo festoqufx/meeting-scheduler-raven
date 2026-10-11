@@ -12,14 +12,11 @@ var App = (function () {
   var _errorTimeout = null;
   var _submitting = false;
   var _maxReachedStep = 1;
+  var _meetingTypes = [];
+  var _meetingTypeSearchTimer = null;
   var TZ_STORAGE_KEY = 'scheduler-timezone';
 
-  var DURATION_OPTIONS = [
-    { minutes: 15, label: '15', unit: 'min' },
-    { minutes: 30, label: '30', unit: 'min' },
-    { minutes: 45, label: '45', unit: 'min' },
-    { minutes: 60, label: '1', unit: 'hr' },
-  ];
+  var DEFAULT_DURATION_MINUTES = [15, 30, 45, 60];
 
   function init() {
     setupStepIndicatorNav();
@@ -45,7 +42,10 @@ var App = (function () {
         var prefetchEnd = new Date(Date.now() + maxDays * 24 * 60 * 60 * 1000);
         ApiClient.prefetchSlots(prefetchStart.toISOString(), prefetchEnd.toISOString());
 
-        renderMeetingTypes(config.meetingTypes);
+        _meetingTypes = Array.isArray(config.meetingTypes) ? config.meetingTypes : [];
+        renderMeetingTypes(_meetingTypes);
+        setupMeetingTypeSearch();
+        updateMeetingTypeSearchMeta(_meetingTypes.length, _meetingTypes.length, '');
 
         document.getElementById('back-to-step-1').addEventListener('click', function () {
           _selectedType = null;
@@ -68,6 +68,7 @@ var App = (function () {
           _maxReachedStep = 3;
           goToStep(3);
         });
+        setupCalendarQuickActions();
 
         if (typeof AvailabilitySettings !== 'undefined') {
           AvailabilitySettings.initUI(function () {
@@ -135,10 +136,39 @@ var App = (function () {
     });
   }
 
+  function setupCalendarQuickActions() {
+    var nextAvailableBtn = document.getElementById('jump-to-next-available');
+    var nextWeekBtn = document.getElementById('jump-next-week');
+    var todayBtn = document.getElementById('jump-today');
+
+    if (nextAvailableBtn) {
+      nextAvailableBtn.addEventListener('click', function () {
+        if (typeof CalendarUI !== 'undefined' && typeof CalendarUI.jumpToNextAvailable === 'function') {
+          CalendarUI.jumpToNextAvailable();
+        }
+      });
+    }
+    if (nextWeekBtn) {
+      nextWeekBtn.addEventListener('click', function () {
+        if (typeof CalendarUI !== 'undefined' && typeof CalendarUI.goToNextWeek === 'function') {
+          CalendarUI.goToNextWeek();
+        }
+      });
+    }
+    if (todayBtn) {
+      todayBtn.addEventListener('click', function () {
+        if (typeof CalendarUI !== 'undefined' && typeof CalendarUI.goToToday === 'function') {
+          CalendarUI.goToToday();
+        }
+      });
+    }
+  }
+
   function populateTimezoneSelector() {
     var select = document.getElementById('timezone-select');
     var timezones = TimezoneUtil.getCommonTimezones();
     var currentTz = TimezoneUtil.getTimezone();
+    var fragment = document.createDocumentFragment();
 
     timezones.forEach(function (tz) {
       var option = document.createElement('option');
@@ -147,8 +177,9 @@ var App = (function () {
       if (tz.value === currentTz) {
         option.selected = true;
       }
-      select.appendChild(option);
+      fragment.appendChild(option);
     });
+    select.appendChild(fragment);
 
     select.addEventListener('change', function () {
       TimezoneUtil.setTimezone(select.value);
@@ -166,6 +197,12 @@ var App = (function () {
   function renderMeetingTypes(meetingTypes) {
     var container = document.getElementById('meeting-types');
     container.textContent = '';
+    if (!meetingTypes || meetingTypes.length === 0) {
+      showMeetingTypeEmptyState('No meeting types match your search. Try a different keyword.');
+      return;
+    }
+
+    var fragment = document.createDocumentFragment();
 
     meetingTypes.forEach(function (type) {
       var card = document.createElement('div');
@@ -212,7 +249,112 @@ var App = (function () {
         }
       });
 
-      container.appendChild(card);
+      fragment.appendChild(card);
+    });
+    container.appendChild(fragment);
+  }
+
+  function setupMeetingTypeSearch() {
+    var searchEl = document.getElementById('meeting-type-search');
+    var clearBtn = document.getElementById('meeting-type-clear');
+    if (!searchEl) return;
+    function applySearch() {
+      var term = (searchEl.value || '').trim().toLowerCase();
+      if (!term) {
+        renderMeetingTypes(_meetingTypes);
+        updateMeetingTypeSearchMeta(_meetingTypes.length, _meetingTypes.length, '');
+        if (clearBtn) clearBtn.classList.add('hidden');
+        return;
+      }
+      var filtered = _meetingTypes.filter(function (type) {
+        var haystack = [
+          type.name || '',
+          type.description || '',
+          type.instructions || '',
+        ].join(' ').toLowerCase();
+        return haystack.indexOf(term) !== -1;
+      });
+      renderMeetingTypes(filtered);
+      updateMeetingTypeSearchMeta(filtered.length, _meetingTypes.length, term);
+      if (clearBtn) clearBtn.classList.remove('hidden');
+    }
+
+    searchEl.addEventListener('input', function () {
+      if (_meetingTypeSearchTimer) {
+        clearTimeout(_meetingTypeSearchTimer);
+      }
+      _meetingTypeSearchTimer = setTimeout(function () {
+        applySearch();
+      }, 120);
+    });
+
+    searchEl.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        searchEl.value = '';
+        applySearch();
+      }
+    });
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function () {
+        searchEl.value = '';
+        applySearch();
+        searchEl.focus();
+      });
+    }
+  }
+
+  function updateMeetingTypeSearchMeta(filteredCount, totalCount, term) {
+    var meta = document.getElementById('meeting-type-search-meta');
+    if (!meta) return;
+    if (term) {
+      meta.textContent = 'Showing ' + filteredCount + ' of ' + totalCount + ' meeting types for "' + term + '".';
+      return;
+    }
+    if (totalCount === 0) {
+      meta.textContent = 'No meeting types are configured.';
+      return;
+    }
+    meta.textContent = 'Showing all ' + totalCount + ' meeting types.';
+  }
+
+  function showMeetingTypeEmptyState(message) {
+    var container = document.getElementById('meeting-types');
+    if (!container) return;
+    var msg = document.createElement('div');
+    msg.className = 'meeting-type-empty';
+    msg.textContent = message;
+    container.appendChild(msg);
+  }
+
+  function formatDurationOption(minutes) {
+    if (minutes % 60 === 0) {
+      return { minutes: minutes, label: String(minutes / 60), unit: 'hr' };
+    }
+    return { minutes: minutes, label: String(minutes), unit: 'min' };
+  }
+
+  function collectDurationOptions(meetingTypes) {
+    var durationMap = {};
+    DEFAULT_DURATION_MINUTES.forEach(function (minutes) {
+      durationMap[minutes] = true;
+    });
+
+    (meetingTypes || []).forEach(function (meetingType) {
+      var durations = meetingType && meetingType.allowed_durations;
+      if (!Array.isArray(durations)) return;
+      durations.forEach(function (duration) {
+        var parsed = parseInt(duration, 10);
+        if (!isNaN(parsed) && parsed >= 5 && parsed <= 240) {
+          durationMap[parsed] = true;
+        }
+      });
+    });
+
+    return Object.keys(durationMap).map(function (duration) {
+      return parseInt(duration, 10);
+    }).sort(function (a, b) {
+      return a - b;
     });
   }
 
@@ -229,10 +371,32 @@ var App = (function () {
     var container = document.getElementById('duration-options');
     container.textContent = '';
 
+    var allDurations = collectDurationOptions(_meetingTypes);
     var allowed = _selectedType && _selectedType.allowed_durations;
-    var options = DURATION_OPTIONS.filter(function (opt) {
-      return !allowed || allowed.indexOf(opt.minutes) !== -1;
-    });
+    var allowedMap = null;
+    if (Array.isArray(allowed) && allowed.length > 0) {
+      allowedMap = {};
+      allowed.forEach(function (duration) {
+        var parsed = parseInt(duration, 10);
+        if (!isNaN(parsed)) {
+          allowedMap[parsed] = true;
+        }
+      });
+    }
+
+    var options = allDurations.filter(function (duration) {
+      return !allowedMap || Boolean(allowedMap[duration]);
+    }).map(formatDurationOption);
+
+    if (options.length === 0) {
+      var message = document.createElement('p');
+      message.className = 'duration-empty';
+      message.textContent = 'No duration options are currently available for this meeting type.';
+      container.appendChild(message);
+      return;
+    }
+
+    var fragment = document.createDocumentFragment();
 
     options.forEach(function (opt) {
       var card = document.createElement('div');
@@ -261,8 +425,9 @@ var App = (function () {
         }
       });
 
-      container.appendChild(card);
+      fragment.appendChild(card);
     });
+    container.appendChild(fragment);
   }
 
   function selectDuration(minutes) {
@@ -441,6 +606,9 @@ var App = (function () {
       .then(function (result) {
         hideLoading();
         _submitting = false;
+        if (typeof BookingForm !== 'undefined' && BookingForm.clearDraft) {
+          BookingForm.clearDraft();
+        }
         ApiClient.invalidatePrefetch();
         showConfirmation(result.booking, bookingData);
         goToStep(5);
@@ -593,6 +761,7 @@ var App = (function () {
     getSelectedType: function () { return _selectedType; },
     getSelectedDuration: function () { return _selectedDuration; },
     getSelectedSlot: function () { return _selectedSlot; },
+    collectDurationOptions: collectDurationOptions,
   };
 })();
 
